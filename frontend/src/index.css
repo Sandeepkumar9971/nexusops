@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased transition-colors duration-200;
+}
+
+.dark body {
+  @apply bg-navy-bg text-slate-100;
+}
+
+/* Tabular figures for any numeric table/KPI cell — digits line up instead
+   of jittering width as they change, a small detail that reads as
+   noticeably more polished in data-heavy screens. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A slim, muted scrollbar instead of the OS default chrome — every
+   scrollable panel (sidebar, main content, drawers) picks this up
+   automatically on WebKit browsers. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: theme('colors.slate.300');
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: theme('colors.slate.400');
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: theme('colors.navy.border');
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: theme('colors.slate.500');
+}
+
+/* Respect the OS-level reduced-motion preference — every custom animation
+   this app defines (toasts, modal/drawer transitions, hover lifts) collapses
+   to an instant state change instead of forcing motion on someone who has
+   explicitly asked for less of it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
