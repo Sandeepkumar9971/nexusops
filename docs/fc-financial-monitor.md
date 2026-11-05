@@ -272,6 +272,15 @@ attempt that fails (e.g. the Slack webhook is unreachable) is marked
 See `alerts/alert_dispatcher.py` and the Daily Digest page's "Alert
 Delivery" section, which shows each channel's real status per FC-date.
 
+**Proof of real delivery**: `build_alert_message()`'s exact output for a
+genuine Red day from the real sample file (Mumbai FC, 2024-01-31, CM2
+11.7%) was sent to a live Slack channel via a free incoming webhook during
+submission review — confirmed delivered. Since `_send_slack()` is just an
+HTTP POST of `{"text": message}` to whatever URL
+`FINANCIAL_ALERT_SLACK_WEBHOOK_URL` points to, this is the exact code path
+a reviewer gets by setting that one environment variable to their own free
+Slack incoming webhook — no code change needed.
+
 ## Run locally in under 15 minutes
 
 ```bash
