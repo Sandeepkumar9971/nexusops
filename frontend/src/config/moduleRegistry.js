@@ -49,6 +49,7 @@ export const getModuleById = (id) => moduleRegistry.find((mod) => mod.id === id)
 const STATIC_PAGE_TITLES = {
   '/': 'Overview',
   '/history': 'Processing History',
+  '/notifications': 'Notification Centre',
   '/reports': 'Reports',
   '/settings': 'Settings',
 }

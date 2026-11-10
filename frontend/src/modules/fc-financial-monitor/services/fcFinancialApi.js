@@ -70,6 +70,16 @@ export async function upsertTarget(metric, { minimum, maximum }) {
   return data.target
 }
 
+export async function listFCManagers() {
+  const { data } = await apiClient.get('/fc-financial-monitor/managers')
+  return data.managers
+}
+
+export async function upsertFCManager(fcName, contact) {
+  const { data } = await apiClient.put(`/fc-financial-monitor/managers/${encodeURIComponent(fcName)}`, contact)
+  return data.manager
+}
+
 export async function listDigests(params = {}) {
   const { data } = await apiClient.get('/fc-financial-monitor/digests', { params })
   return data

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, History, FileText, Settings, X, Boxes, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { LayoutDashboard, History, FileText, Settings, X, Boxes, ChevronsLeft, ChevronsRight, Bell } from 'lucide-react'
 import { moduleRegistry, MODULE_STATUS } from '../../config/moduleRegistry'
 import Logo from '../common/Logo'
 
 const platformNav = [{ label: 'Overview', to: '/', icon: LayoutDashboard, end: true }]
 
 const bottomNav = [
+  { label: 'Notifications', to: '/notifications', icon: Bell },
   { label: 'Processing History', to: '/history', icon: History },
   { label: 'Reports', to: '/reports', icon: FileText },
   { label: 'Settings', to: '/settings', icon: Settings },

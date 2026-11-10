@@ -6,6 +6,7 @@ import Report, { REPORT_TYPE } from '../../../models/Report.js'
 import { asyncHandler } from '../../../middleware/asyncHandler.js'
 import pythonAiClient from '../../../services/pythonAiClient.js'
 import { UPLOAD_ROOT } from '../../../config/paths.js'
+import { findRecentDuplicateJob } from '../../../services/duplicateJobGuard.js'
 
 const MODULE_ID = 'fc-financial-monitor'
 const STAGING_SUBFOLDER = 'fc-financial-monitor/staging'
@@ -93,6 +94,13 @@ export const createBatch = asyncHandler(async (req, res) => {
   if (!fs.existsSync(stagedPath)) {
     res.status(400)
     throw new Error('Staged file not found — please re-upload.')
+  }
+
+  const duplicate = await findRecentDuplicateJob({ moduleId: MODULE_ID, userId: req.user.id, inputFiles: [fileName] })
+  if (duplicate) {
+    fs.rmSync(path.join(UPLOAD_ROOT, STAGING_SUBFOLDER, stagingId), { recursive: true, force: true })
+    res.status(200).json({ job: duplicate, deduplicated: true })
+    return
   }
 
   const jobId = new mongoose.Types.ObjectId().toString()

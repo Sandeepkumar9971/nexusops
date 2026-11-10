@@ -8,6 +8,7 @@ from bson import ObjectId
 
 from app.core.config import settings
 from app.core.db import get_db
+from app.core.notification_client import notify
 from app.modules.fc_financial_monitor.alerts.alert_dispatcher import dispatch_fc_alert
 from app.modules.fc_financial_monitor.anomaly_detection.engine import (
     classify_cm2_status,
@@ -15,6 +16,7 @@ from app.modules.fc_financial_monitor.anomaly_detection.engine import (
     detect_cm_anomaly,
     detect_cost_anomaly,
 )
+from app.modules.fc_financial_monitor.anomaly_detection.trend_analysis import compute_recurring_streak
 from app.modules.fc_financial_monitor.calculations.margin_calculations import calculate_metrics
 from app.modules.fc_financial_monitor.insights.insight_generator import generate_insight
 from app.modules.fc_financial_monitor.parsers.financial_parser import parse_financial_file
@@ -56,6 +58,7 @@ def process_financial_batch(
 
     successful = 0
     failed = 0
+    critical_anomaly_count = 0
     daily_docs: list[dict] = []
     anomaly_docs: list[dict] = []
     insight_docs: list[dict] = []
@@ -147,6 +150,17 @@ def process_financial_batch(
                 daily_docs.append(daily_doc)
 
                 for anomaly in row_anomalies:
+                    # Only a cost-category line item has meaningful
+                    # "recurring" semantics the way the spec means it (the
+                    # same cost breaching day after day) — CM1/CM2 and
+                    # data-quality findings aren't tracked against
+                    # flaggedCosts, so they'd always show a streak of 1.
+                    recurring_streak = None
+                    if anomaly.metric in flagged_costs and date_str:
+                        recurring_streak = compute_recurring_streak(
+                            daily_collection, fc_name=fc_name, fc_id=row.fc_id, metric=anomaly.metric, date_str=date_str
+                        )
+
                     anomaly_doc = {
                         "jobId": job_object_id,
                         "moduleId": MODULE_ID,
@@ -166,12 +180,15 @@ def process_financial_batch(
                         "severity": anomaly.severity,
                         "explanation": anomaly.explanation,
                         "recommendation": anomaly.recommendation,
+                        "recurringStreak": recurring_streak,
                         "status": "OPEN",
                         "createdAt": datetime.now(timezone.utc),
                         "updatedAt": datetime.now(timezone.utc),
                     }
                     anomalies_collection.insert_one(dict(anomaly_doc))
                     anomaly_docs.append(anomaly_doc)
+                    if anomaly.severity == "CRITICAL":
+                        critical_anomaly_count += 1
 
                 if insight.top_contributors or any(a.severity != "INFO" for a in row_anomalies):
                     insight_docs.append(
@@ -260,3 +277,45 @@ def process_financial_batch(
             {"_id": job_object_id},
             {"$set": {"status": final_status, "currentStage": "Done", "completedAt": datetime.now(timezone.utc)}},
         )
+
+        if final_status == "FAILED":
+            notify(
+                job_id=job_id,
+                module_id=MODULE_ID,
+                type_="PROCESSING_FAILED",
+                severity="CRITICAL",
+                title="Financial batch failed",
+                message="This financial file could not be processed — see job error details.",
+                dedupe_key=f"financial-job-done:{job_id}",
+            )
+        elif critical_anomaly_count > 0:
+            notify(
+                job_id=job_id,
+                module_id=MODULE_ID,
+                type_="FINANCIAL_CRITICAL_ANOMALY",
+                severity="CRITICAL",
+                title="Critical FC financial anomalies detected",
+                message=f"{critical_anomaly_count} critical anomaly(ies) found across this batch — review the Anomaly Management page.",
+                dedupe_key=f"financial-job-done:{job_id}",
+            )
+        else:
+            notify(
+                job_id=job_id,
+                module_id=MODULE_ID,
+                type_="PROCESSING_COMPLETED",
+                severity="SUCCESS",
+                title="Financial batch completed",
+                message=f"{successful} day(s) processed with no critical anomalies.",
+                dedupe_key=f"financial-job-done:{job_id}",
+            )
+
+        if daily_docs:
+            notify(
+                job_id=job_id,
+                module_id=MODULE_ID,
+                type_="FINANCIAL_DIGEST_READY",
+                severity="INFO",
+                title="Daily FC digest available",
+                message=f"Digest generated for {len({d['fcName'] for d in daily_docs})} FC(s) across {len(daily_docs)} day(s).",
+                dedupe_key=f"financial-digest-ready:{job_id}",
+            )

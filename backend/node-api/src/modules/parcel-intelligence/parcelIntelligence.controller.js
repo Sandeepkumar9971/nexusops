@@ -7,6 +7,7 @@ import { asyncHandler } from '../../middleware/asyncHandler.js'
 import pythonAiClient from '../../services/pythonAiClient.js'
 import { UPLOAD_ROOT } from '../../config/paths.js'
 import { toCsv } from '../../services/csvService.js'
+import { findRecentDuplicateJob } from '../../services/duplicateJobGuard.js'
 
 const CSV_COLUMNS = [
   { header: 'Filename', value: (r) => r.filename },
@@ -37,10 +38,18 @@ export const createJob = asyncHandler(async (req, res) => {
     throw new Error('At least one image is required.')
   }
 
+  const inputFiles = req.files.map((file) => file.filename)
+  const duplicate = await findRecentDuplicateJob({ moduleId: 'parcel-intelligence', userId: req.user.id, inputFiles })
+  if (duplicate) {
+    res.status(200).json({ job: duplicate, deduplicated: true })
+    return
+  }
+
   const job = await Job.create({
     _id: req.uploadBatchId,
     moduleId: 'parcel-intelligence',
-    inputFiles: req.files.map((file) => file.filename),
+    userId: req.user.id,
+    inputFiles,
     totalRecords: req.files.length,
     status: JOB_STATUS.PENDING,
   })

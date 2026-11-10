@@ -6,6 +6,7 @@ from bson import ObjectId
 
 from app.core.config import settings
 from app.core.db import get_db
+from app.core.notification_client import notify
 from app.modules.parcel_intelligence.pipeline import run_detection_pipeline
 
 UPLOAD_SUBFOLDER = "parcel-intelligence"
@@ -34,6 +35,7 @@ def process_parcel_job(job_id: str, filenames: list[str]):
     total = len(filenames)
     successful = 0
     failed = 0
+    needs_review = 0
 
     try:
         for index, filename in enumerate(filenames, start=1):
@@ -53,6 +55,8 @@ def process_parcel_job(job_id: str, filenames: list[str]):
                 failed += 1
             else:
                 successful += 1
+            if outcome["status"] == "NEEDS_REVIEW":
+                needs_review += 1
 
             results.insert_one(
                 {
@@ -93,3 +97,34 @@ def process_parcel_job(job_id: str, filenames: list[str]):
             {"_id": job_object_id},
             {"$set": {"status": final_status, "completedAt": datetime.now(timezone.utc)}},
         )
+
+        if final_status == "FAILED":
+            notify(
+                job_id=job_id,
+                module_id="parcel-intelligence",
+                type_="PROCESSING_FAILED",
+                severity="CRITICAL",
+                title="Parcel batch failed",
+                message=f"All {total} image(s) in this batch failed extraction.",
+                dedupe_key=f"parcel-job-done:{job_id}",
+            )
+        elif needs_review > 0:
+            notify(
+                job_id=job_id,
+                module_id="parcel-intelligence",
+                type_="PARCEL_EXTRACTION_EXCEPTION",
+                severity="WARNING",
+                title="Parcel batch needs review",
+                message=f"{needs_review} of {total} image(s) need manual review — AWB/weight could not be confidently extracted.",
+                dedupe_key=f"parcel-job-done:{job_id}",
+            )
+        else:
+            notify(
+                job_id=job_id,
+                module_id="parcel-intelligence",
+                type_="PROCESSING_COMPLETED",
+                severity="SUCCESS",
+                title="Parcel batch completed",
+                message=f"All {total} image(s) extracted successfully.",
+                dedupe_key=f"parcel-job-done:{job_id}",
+            )

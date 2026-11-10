@@ -39,7 +39,7 @@ export default function ReportsPage() {
         <EmptyState
           icon={FileText}
           title="No reports yet."
-          description="Export a CSV from a completed Parcel Intelligence job to see it here."
+          description="Export a report from any completed job to see it here, or browse Processing History."
         />
       )}
 

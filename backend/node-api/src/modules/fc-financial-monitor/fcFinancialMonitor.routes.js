@@ -8,6 +8,7 @@ import { listAnomalies, getAnomalyDetail, updateAnomalyStatus } from './controll
 import { listTargets, upsertTarget } from './controllers/target.controller.js'
 import { listDigests, listAvailableDates } from './controllers/digest.controller.js'
 import { listAlerts } from './controllers/alert.controller.js'
+import { listFCManagers, upsertFCManager } from './controllers/fcManager.controller.js'
 
 const FINANCIAL_FILE_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
@@ -67,5 +68,8 @@ router.get('/digests', listDigests)
 router.get('/digest-dates', listAvailableDates)
 
 router.get('/alerts', listAlerts)
+
+router.get('/managers', listFCManagers)
+router.put('/managers/:fcName', upsertFCManager)
 
 export default router

@@ -261,16 +261,53 @@ required** for the module to work:
 | In-app | Always available | Always `SENT` — this collection *is* the in-app notification history |
 | Slack | `FINANCIAL_ALERT_SLACK_WEBHOOK_URL` env var (a free Slack incoming webhook) | `PENDING_CONFIGURATION` |
 | Email | `FINANCIAL_ALERT_SMTP_HOST` + `FINANCIAL_ALERT_EMAIL_TO` (any SMTP server you already have access to) | `PENDING_CONFIGURATION` |
-| WhatsApp | `FINANCIAL_ALERT_WHATSAPP_WEBHOOK_URL` (bring your own gateway — no bundled provider, since a real WhatsApp Business API isn't free) | `PENDING_CONFIGURATION` |
+| WhatsApp | `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` + `FINANCIAL_ALERT_WHATSAPP_TO` (the official Meta WhatsApp Business Cloud API free tier) | `PENDING_CONFIGURATION` |
 
 An alert is generated once per `(batch, FC, date)` for any FC that isn't
 Green — enforced by a unique database index, so re-processing can never
 create a duplicate. **Delivery is never faked**: a channel with no
 configuration is honestly marked `PENDING_CONFIGURATION`, and a delivery
-attempt that fails (e.g. the Slack webhook is unreachable) is marked
-`FAILED` with the actual error recorded, never silently reported as sent.
-See `alerts/alert_dispatcher.py` and the Daily Digest page's "Alert
-Delivery" section, which shows each channel's real status per FC-date.
+attempt that fails (e.g. the Slack webhook is unreachable, or the
+WhatsApp Cloud API rejects the template) is marked `FAILED` with the
+actual error recorded, never silently reported as sent. See
+`alerts/alert_dispatcher.py` and the Daily Digest page's "Alert Delivery"
+section, which shows each channel's real status per FC-date.
+
+### Per-FC manager routing
+
+Alerts and digests go to the FC's own manager when one is configured —
+Target Configuration's "FC Manager Contacts" table (`GET`/`PUT
+/api/fc-financial-monitor/managers`) lets you set a name/email/phone per
+FC. `dispatch_fc_alert()` looks this up (`fc_managers` collection, read
+directly by Python, same shared-MongoDB pattern as `financial_targets`)
+and uses it as the Slack webhook / email recipient / WhatsApp number for
+that specific FC, falling back to the global env vars above for any
+channel the FC's manager hasn't configured. An FC with no manager
+configured at all behaves exactly as before — pure global-env-var
+routing.
+
+### Email: retries + a local test mode
+
+`_send_email()` retries once on failure (2 attempts total) before
+reporting `FAILED`, and every attempt's failure is logged via
+`logger.error` (previously silent). Setting
+`FINANCIAL_ALERT_SMTP_HOST=console` switches to a **local test mode**
+that writes the email to the application log instead of attempting real
+SMTP — useful for verifying recipient routing end to end without a real
+mailbox; it is still recorded as `SENT` since the content really was
+produced and "delivered" to the configured sink (the log), just never
+claimed as delivered to a real inbox.
+
+### Notifications, separately from alerts
+
+Alerts (above) are FC-specific and routed to an FC's manager. A
+*different*, platform-wide notification is also created for the
+submitting user via the shared Notification Centre
+(`frontend` bell icon / `/notifications`) whenever a batch finishes:
+one critical notification if any `CRITICAL`-severity anomaly was found,
+one `SUCCESS` notification otherwise, and a separate `INFO` notification
+once the daily digest is ready. See `app/core/notification_client.py`
+and `backend/node-api/src/models/Notification.js`.
 
 **Proof of real delivery**: `build_alert_message()`'s exact output for a
 genuine Red day from the real sample file (Mumbai FC, 2024-01-31, CM2
@@ -400,16 +437,21 @@ against the real "Ideal FC Criteria" target ranges, CM1 63.17%/CM2
 The initial system is deliberately deterministic and rule-based — no
 LLM, no multi-agent system, no paid API — per the explicit instruction
 not to overcomplicate the first version. The architecture is set up so
-it can get smarter over time without a rewrite:
+it can get smarter over time without a rewrite. Some of this is now
+implemented, not just planned:
 
-- **Memory of past days**: `fc_daily_financials` already stores every
-  processed day per FC, not just the latest — a "has this FC breached
-  the same cost category 3+ times this month" check is a query away, not
-  a new data model.
-- **Trend tracking**: the FC detail page's historical charts are already
-  reading from that same per-day history; a weekly/monthly rollup or a
-  rate-of-change alert ("CM2 has declined for 3 consecutive days") can be
-  built as an additional pass over the same stored data.
+- **Memory of past days / recurring-breach detection (implemented)**:
+  `anomaly_detection/trend_analysis.py`'s `compute_recurring_streak()`
+  looks back across every batch ever processed for an FC (not just the
+  current upload) and annotates each cost-category anomaly with how many
+  consecutive days that exact line item has breached — shown as a "3d"
+  badge in the Anomaly Management table and a "Recurring: N consecutive
+  days" row in the anomaly detail drawer. A gap (a clean day) resets the
+  streak; a different metric breaching doesn't count toward another
+  metric's streak.
+- **Trend tracking**: the FC detail page's historical charts read from
+  the same per-day history the recurring-streak check uses; a
+  weekly/monthly rollup is a further pass over the same stored data.
 - **Manual overrides**: Target Configuration already stores *who*
   configured a target and *when* — extending it to an approval workflow
   or per-FC target overrides (some FCs may legitimately run at different

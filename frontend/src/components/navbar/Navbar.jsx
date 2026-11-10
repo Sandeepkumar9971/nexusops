@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Menu, Bell, ChevronDown, LogOut, Settings, Sun, Moon } from 'lucide-react'
+import { Menu, ChevronDown, LogOut, Settings, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { useTheme } from '../../app/providers/ThemeProvider'
 import Breadcrumb from './Breadcrumb'
 import GlobalSearch from './GlobalSearch'
+import NotificationPanel from './NotificationPanel'
 
 export default function Navbar({ onMenuClick }) {
   const navigate = useNavigate()
@@ -50,12 +51,7 @@ export default function Navbar({ onMenuClick }) {
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
 
-        <button
-          className="relative rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100"
-          aria-label="Notifications"
-        >
-          <Bell size={19} />
-        </button>
+        <NotificationPanel />
 
         <div className="relative" ref={menuRef}>
           <button

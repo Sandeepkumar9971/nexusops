@@ -40,6 +40,11 @@ const financialAnomalySchema = new mongoose.Schema(
     severity: { type: String, enum: Object.values(ANOMALY_SEVERITY), index: true },
     explanation: { type: String },
     recommendation: { type: String },
+    // Consecutive days (including this one) this exact cost line has
+    // breached its target for this FC, looking back across every batch
+    // ever processed for it — null for CM1/CM2/data-quality findings,
+    // which don't have this per-line-item history. 1 = first time seen.
+    recurringStreak: { type: Number, default: null },
     status: { type: String, enum: Object.values(ANOMALY_STATUS), default: ANOMALY_STATUS.OPEN, index: true },
     statusReason: { type: String },
   },

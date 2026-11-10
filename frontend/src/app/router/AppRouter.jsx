@@ -4,6 +4,7 @@ import ProtectedRoute from './ProtectedRoute'
 import LoginPage from '../../pages/LoginPage'
 import OverviewPage from '../../pages/OverviewPage'
 import ProcessingHistoryPage from '../../pages/ProcessingHistoryPage'
+import NotificationCenterPage from '../../pages/NotificationCenterPage'
 import ReportsPage from '../../pages/ReportsPage'
 import SettingsPage from '../../pages/SettingsPage'
 import ComingSoonPage from '../../pages/ComingSoonPage'
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <OverviewPage /> },
       ...moduleRoutes,
+      { path: 'modules/parcel-intelligence/batches/:jobId', element: <ParcelIntelligencePage /> },
       { path: 'modules/compliance/new', element: <ComplianceWorkflowPage /> },
       { path: 'modules/compliance/batches/:batchId', element: <ComplianceWorkflowPage /> },
       { path: 'modules/fc-financial/upload', element: <FinancialUploadPage /> },
@@ -62,6 +64,7 @@ export const router = createBrowserRouter([
       { path: 'modules/fc-financial/digests', element: <DailyDigestPage /> },
       { path: 'modules/fc-financial/targets', element: <TargetConfigurationPage /> },
       { path: 'history', element: <ProcessingHistoryPage /> },
+      { path: 'notifications', element: <NotificationCenterPage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },

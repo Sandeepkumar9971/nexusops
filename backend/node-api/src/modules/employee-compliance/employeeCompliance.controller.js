@@ -4,6 +4,7 @@ import ComplianceEmployeeResult, { VERIFICATION_STATUS } from '../../models/Comp
 import Report, { REPORT_TYPE } from '../../models/Report.js'
 import { asyncHandler } from '../../middleware/asyncHandler.js'
 import pythonAiClient from '../../services/pythonAiClient.js'
+import { findRecentDuplicateJob } from '../../services/duplicateJobGuard.js'
 
 const MODULE_ID = 'employee-compliance'
 const MISMATCH_STATUSES = [
@@ -16,12 +17,19 @@ export const createBatch = asyncHandler(async (req, res) => {
   const wagesheetFile = req.files.wagesheet[0]
   const pfEcrFile = req.files.pfEcr[0]
   const esicEcrFile = req.files.esicEcr[0]
+  const inputFiles = [wagesheetFile.filename, pfEcrFile.filename, esicEcrFile.filename]
+
+  const duplicate = await findRecentDuplicateJob({ moduleId: MODULE_ID, userId: req.user.id, inputFiles })
+  if (duplicate) {
+    res.status(200).json({ job: duplicate, deduplicated: true })
+    return
+  }
 
   const job = await Job.create({
     _id: req.uploadBatchId,
     moduleId: MODULE_ID,
     userId: req.user.id,
-    inputFiles: [wagesheetFile.filename, pfEcrFile.filename, esicEcrFile.filename],
+    inputFiles,
     status: JOB_STATUS.PENDING,
   })
 

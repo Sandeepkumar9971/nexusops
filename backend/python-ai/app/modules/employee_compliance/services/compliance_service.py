@@ -6,6 +6,7 @@ from bson import ObjectId
 
 from app.core.config import settings
 from app.core.db import get_db
+from app.core.notification_client import notify
 from app.modules.employee_compliance.parsers.esic_ecr_parser import parse_esic_ecr
 from app.modules.employee_compliance.parsers.pf_ecr_parser import parse_pf_ecr
 from app.modules.employee_compliance.parsers.wagesheet_parser import parse_wagesheet
@@ -65,6 +66,7 @@ def process_compliance_batch(job_id: str, wagesheet_filename: str, pf_ecr_filena
 
     successful = 0
     failed = 0
+    mismatch_count = 0
     employee_docs: list[dict] = []
 
     try:
@@ -149,6 +151,13 @@ def process_compliance_batch(job_id: str, wagesheet_filename: str, pf_ecr_filena
             else:
                 successful += 1
 
+            if pf_verification["status"] in (statuses.NAME_MISMATCH, statuses.AMOUNT_MISMATCH, statuses.MISSING) or esic_verification["status"] in (
+                statuses.NAME_MISMATCH,
+                statuses.AMOUNT_MISMATCH,
+                statuses.MISSING,
+            ):
+                mismatch_count += 1
+
             employee_doc = {
                 "jobId": job_object_id,
                 "moduleId": MODULE_ID,
@@ -212,3 +221,34 @@ def process_compliance_batch(job_id: str, wagesheet_filename: str, pf_ecr_filena
             {"_id": job_object_id},
             {"$set": {"status": final_status, "currentStage": "Done", "completedAt": datetime.now(timezone.utc)}},
         )
+
+        if final_status == "FAILED":
+            notify(
+                job_id=job_id,
+                module_id=MODULE_ID,
+                type_="PROCESSING_FAILED",
+                severity="CRITICAL",
+                title="Compliance batch failed",
+                message="This wagesheet/ECR batch could not be processed — see job error details.",
+                dedupe_key=f"compliance-job-done:{job_id}",
+            )
+        elif mismatch_count > 0:
+            notify(
+                job_id=job_id,
+                module_id=MODULE_ID,
+                type_="COMPLIANCE_MISMATCH",
+                severity="WARNING",
+                title="PF/ESIC mismatches found",
+                message=f"{mismatch_count} of {successful + failed} employee(s) have a PF or ESIC name/amount mismatch or missing ECR record.",
+                dedupe_key=f"compliance-job-done:{job_id}",
+            )
+        else:
+            notify(
+                job_id=job_id,
+                module_id=MODULE_ID,
+                type_="PROCESSING_COMPLETED",
+                severity="SUCCESS",
+                title="Compliance batch completed",
+                message="Every employee matched PF and ESIC records with no discrepancies.",
+                dedupe_key=f"compliance-job-done:{job_id}",
+            )

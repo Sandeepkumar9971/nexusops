@@ -15,6 +15,12 @@ class Settings:
     # Same physical folder Node writes uploads into — both services assume
     # a shared local filesystem for now (fine for a single-host MVP).
     upload_root: str = os.path.join(PROJECT_ROOT, "uploads")
+    # For the one direction Python calls Node instead of the usual reverse:
+    # posting a notification after a job finishes (or a critical anomaly
+    # fires mid-job). Shares INTERNAL_API_TOKEN with Node's
+    # requireInternalToken middleware — never a user JWT.
+    node_api_base_url: str = os.getenv("NODE_API_BASE_URL", "http://127.0.0.1:4000/api")
+    internal_api_token: str = os.getenv("INTERNAL_API_TOKEN", "")
 
 
 settings = Settings()

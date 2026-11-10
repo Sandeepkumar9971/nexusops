@@ -122,6 +122,16 @@ export default function AnomalyDetailDrawer({ anomalyId, onClose, onUpdated }) {
                 label="Financial Impact"
                 value={detail.anomaly.financialImpact != null ? `₹${detail.anomaly.financialImpact.toLocaleString()}` : null}
               />
+              {detail.anomaly.recurringStreak != null && (
+                <Row
+                  label="Recurring"
+                  value={
+                    detail.anomaly.recurringStreak >= 2
+                      ? `${detail.anomaly.recurringStreak} consecutive days`
+                      : 'First occurrence'
+                  }
+                />
+              )}
             </dl>
 
             <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
