@@ -1,3 +1,7 @@
+# Credentials Details
+Email ID:sandeep.yadav@nexusops.io
+password:NewSecurePass456!
+
 # NexusOps — Operations Intelligence Platform
 
 ![Node](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
